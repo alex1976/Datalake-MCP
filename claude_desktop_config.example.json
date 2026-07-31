@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "cpm-datalake": {
+      "command": "dotnet",
+      "args": [
+        "C:\\Users\\a.maramotti\\source\\repos\\Datalake-MCP\\src\\Datalake.Mcp.Server\\bin\\Release\\net9.0\\Datalake.Mcp.Server.dll"
+      ],
+      "env": {
+        "DataLake__AccountName": "<nome-account>",
+        "DataLake__AccountKey": "<chiave-account>",
+        "DataLake__DefaultFileSystem": "<container-predefinito>"
+      }
+    }
+  }
+}
