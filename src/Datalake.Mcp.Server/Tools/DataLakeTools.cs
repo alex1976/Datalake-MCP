@@ -9,7 +9,8 @@ public sealed class DataLakeTools(
     DataLakeService dataLake,
     CsvReaderService csvReader,
     ParquetReaderService parquetReader,
-    TextReaderService textReader)
+    TextReaderService textReader,
+    XmlReaderService xmlReader)
 {
     private const int DefaultMaxRows = 200;
     private const int HardMaxRows = 10_000;
@@ -154,5 +155,50 @@ public sealed class DataLakeTools(
 
         await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
         return await textReader.ReadAsync(stream, boundedMaxLines, boundedOffset, cancellationToken);
+    }
+
+    [McpServerTool(Name = "get_xml_schema"), Description(
+        "Restituisce lo schema (nomi colonna, tra attributi ed elementi figli) di un file XML tabellare, individuando " +
+        "l'elemento record senza leggerne tutti i dati, utile per decidere quali colonne proiettare con read_xml.")]
+    public async Task<IReadOnlyList<XmlColumnInfo>> GetXmlSchemaAsync(
+        [Description("Percorso completo del file XML all'interno del filesystem.")] string path,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Nome locale dell'elemento XML che rappresenta un record/riga (es. 'Product'). Se omesso viene usato il primo elemento figlio della radice.")]
+        string? recordElement = null,
+        CancellationToken cancellationToken = default)
+    {
+        var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
+
+        await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
+        return await xmlReader.GetSchemaAsync(stream, recordElement, cancellationToken);
+    }
+
+    [McpServerTool(Name = "read_xml"), Description(
+        "Legge un file XML tabellare dal datalake (una radice contenente elementi record ripetuti, es. " +
+        "<Root><Record>...</Record>...</Root>) restituendo colonne e righe. L'elemento record viene individuato " +
+        "automaticamente (primo figlio della radice) salvo specificarlo con 'recordElement'. La lettura si interrompe " +
+        "non appena 'maxRows' viene raggiunto. Se il risultato ha 'truncated' true, richiama nuovamente il tool " +
+        "passando 'offset' = 'nextOffset' per leggere la pagina successiva.")]
+    public async Task<XmlReadResult> ReadXmlAsync(
+        [Description("Percorso completo del file XML all'interno del filesystem.")] string path,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Numero massimo di righe (record) da restituire (default 200, massimo 10000).")]
+        int maxRows = DefaultMaxRows,
+        [Description("Nome locale dell'elemento XML che rappresenta un record/riga (es. 'Product'). Se omesso viene usato il primo elemento figlio della radice.")]
+        string? recordElement = null,
+        [Description("Sottoinsieme di colonne (attributi o elementi figli del record) da leggere. Se omesso vengono lette tutte le colonne trovate nel primo record.")]
+        string[]? columns = null,
+        [Description("Numero di record da saltare prima di iniziare a restituire risultati, per leggere pagine successive di un file di grandi dimensioni.")]
+        int offset = 0,
+        CancellationToken cancellationToken = default)
+    {
+        var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
+        var boundedMaxRows = Math.Clamp(maxRows, 1, HardMaxRows);
+        var boundedOffset = Math.Max(0, offset);
+
+        await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
+        return await xmlReader.ReadAsync(stream, boundedMaxRows, recordElement, columns, boundedOffset, cancellationToken);
     }
 }

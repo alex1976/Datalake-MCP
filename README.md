@@ -1,8 +1,8 @@
 # Datalake-MCP
 
 **Server MCP** (Model Context Protocol) che espone un Azure Data Lake Storage Gen2 a Claude,
-consentendo di navigare i file e leggerne il contenuto in formato CSV, Parquet, testo (.txt) o
-markdown (.md).
+consentendo di navigare i file e leggerne il contenuto in formato CSV, Parquet, testo (.txt),
+markdown (.md) o XML.
 
 ## Struttura della soluzione
 
@@ -14,8 +14,9 @@ src/Datalake.Mcp.Server/         Server MCP (host .NET Generic Host, trasporto s
   Services/CsvReaderService.cs       Lettura CSV con limite di righe (streaming)
   Services/ParquetReaderService.cs   Lettura Parquet a row-group, con proiezione colonne
   Services/TextReaderService.cs      Lettura file di testo/markdown riga per riga (streaming)
+  Services/XmlReaderService.cs       Lettura XML tabellare elemento per elemento, con proiezione colonne
   Tools/DataLakeTools.cs             Tool MCP esposti al client (list_filesystems, read_csv, ...)
-tests/Datalake.Mcp.Server.Tests/ Test xUnit per i reader CSV/Parquet/testo
+tests/Datalake.Mcp.Server.Tests/ Test xUnit per i reader CSV/Parquet/testo/XML
 ```
 
 ## Tool MCP esposti
@@ -30,17 +31,20 @@ tests/Datalake.Mcp.Server.Tests/ Test xUnit per i reader CSV/Parquet/testo
 | `read_parquet` | Legge un Parquet, con `maxRows`, proiezione opzionale delle colonne e `offset` per la paginazione |
 | `read_text` | Legge un file di testo (.txt), con `maxLines` e `offset` per la paginazione |
 | `read_markdown` | Legge un file markdown (.md), con `maxLines` e `offset` per la paginazione |
+| `get_xml_schema` | Restituisce lo schema (colonne, tra attributi ed elementi) dell'elemento record di un XML tabellare senza leggerne i dati |
+| `read_xml` | Legge un XML tabellare (radice con elementi record ripetuti), con `maxRows`, elemento record e proiezione colonne opzionali, e `offset` per la paginazione |
 
-Le letture sono progettate per non caricare interi file in memoria: CSV e testo/markdown vengono
-letti riga per riga fermandosi al limite richiesto, mentre Parquet viene letto un row-group alla
-volta. I file remoti vengono aperti con streaming a caricamento differito
-(`DataLakeFileClient.OpenReadAsync`), che scarica solo i byte effettivamente necessari.
+Le letture sono progettate per non caricare interi file in memoria: CSV, testo/markdown e XML
+vengono letti riga/elemento per riga/elemento fermandosi al limite richiesto, mentre Parquet viene
+letto un row-group alla volta. I file remoti vengono aperti con streaming a caricamento differito
+(`DataLakeFileClient.OpenReadAsync`), che scarica solo i byte effettivamente necessari. La lettura
+XML disabilita il DTD processing e la risoluzione di entità esterne per evitare attacchi XXE.
 
 ### Paginazione
 
-Le risposte di `read_csv`, `read_parquet`, `read_text` e `read_markdown` sono soggette al limite
-di dimensione dei tool call (circa 1 MB). Per file che eccedono `maxRows`/`maxLines` (o il limite
-di dimensione), il risultato riporta
+Le risposte di `read_csv`, `read_parquet`, `read_text`, `read_markdown` e `read_xml` sono soggette
+al limite di dimensione dei tool call (circa 1 MB). Per file che eccedono `maxRows`/`maxLines` (o
+il limite di dimensione), il risultato riporta
 `truncated: true` e un `nextOffset`: richiamando nuovamente il tool con `offset = nextOffset` si
 ottiene la pagina successiva, saltando le righe già restituite senza doverle rileggere per intero.
 Quando non c'è altro da leggere, `truncated` è `false` e `nextOffset` è `null`.

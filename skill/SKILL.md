@@ -12,7 +12,7 @@ Trigger anche per frasi italiane come "quanto abbiamo speso", "confronta previst
 ## Panoramica del datalake
 
 Il datalake contiene dati relativi alle commesse gestite in CPM. Sono presenti dati di previsione (BuildingRequirements), ordinato (Orders), consuntivo (EarnCostAccountings) più altre informazioni a supporto.
-il datalake è organizzato per cartelle, dentro alle cartelle ci sono file (csv, parquet, txt, md) e dentro ai file si trovano i dati.
+il datalake è organizzato per cartelle, dentro alle cartelle ci sono file (csv, parquet, txt, md, xml) e dentro ai file si trovano i dati.
 
 Le cartelle sono le seguenti: Projects, Products, WorkBreakdownElements, BuildingRequirements, Orders, EarnCostAccountings, PurchaseRequests, PaymentCertificates
 In ogni cartella ci sono dei file nominati con GUID del progetto a cui si riferiscono (es. 71202acf-c53a-4df9-97f7-a99000a1e6cb.csv)
@@ -134,21 +134,24 @@ PaymentCertificates: riferisce Project (ProjectId)
 
 ## Lettura dei file e paginazione
 
-I tool `read_csv`, `read_parquet`, `read_text` e `read_markdown` non restituiscono mai un file
-intero in un'unica chiamata: si fermano a `maxRows`/`maxLines` righe (default 200) per non
+I tool `read_csv`, `read_parquet`, `read_text`, `read_markdown` e `read_xml` non restituiscono mai
+un file intero in un'unica chiamata: si fermano a `maxRows`/`maxLines` righe (default 200) per non
 superare il limite di dimensione delle risposte. Quando ci sono altre righe da leggere, il
 risultato riporta `truncated: true` e un `nextOffset`.
 
 `read_text` e `read_markdown` sono utili per leggere eventuali file di documentazione o note
-(.txt/.md) presenti nel datalake accanto ai dati csv/parquet.
+(.txt/.md) presenti nel datalake accanto ai dati csv/parquet. `read_xml`/`get_xml_schema` leggono
+file XML tabellari (una radice con elementi record ripetuti); se il nome dell'elemento record non
+viene individuato correttamente in automatico, specificarlo esplicitamente col parametro
+`recordElement`.
 
 **IMPORTANTE — per qualsiasi calcolo aggregato (somme, conteggi, medie su `CostAmount`,
 `EarnAmount`, `JPSAmount`, `JISAmount`, ecc.) è obbligatorio leggere **tutte** le righe del file**,
 non solo la prima pagina, altrimenti i totali (costo consuntivo, budget, EVM, margine...) risultano
 parziali e sbagliati. Procedura:
 
-1. Chiama `read_csv`/`read_parquet` con `offset: 0` (ed eventualmente un `maxRows` alto, fino al
-   massimo consentito, per ridurre il numero di round-trip).
+1. Chiama `read_csv`/`read_parquet`/`read_xml` con `offset: 0` (ed eventualmente un `maxRows` alto,
+   fino al massimo consentito, per ridurre il numero di round-trip).
 2. Se il risultato ha `truncated: true`, richiama nuovamente il tool sullo stesso file passando
    `offset: nextOffset`, e ripeti finché `truncated` non è `false`.
 3. Solo dopo aver raccolto tutte le pagine esegui le somme/aggregazioni richieste.
