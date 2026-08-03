@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Datalake-MCP — Azure Data Lake per Claude</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --surface: #121821;
+    --surface-2: #17202b;
+    --border: #24303d;
+    --text: #e6edf3;
+    --text-dim: #9aa8b6;
+    --accent: #4fb8ff;
+    --accent-2: #7cf5c4;
+    --code-bg: #0d1420;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  a { color: var(--accent); }
+
+  header {
+    padding: 5rem 1.5rem 4rem;
+    text-align: center;
+    background:
+      radial-gradient(60% 100% at 50% 0%, rgba(79, 184, 255, 0.15), transparent),
+      var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+
+  header .badge {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+  }
+
+  header h1 {
+    margin: 0 0 0.6rem;
+    font-size: clamp(2.2rem, 5vw, 3.2rem);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  header p.tagline {
+    max-width: 640px;
+    margin: 0 auto;
+    color: var(--text-dim);
+    font-size: 1.15rem;
+  }
+
+  .cta {
+    margin-top: 2rem;
+    display: flex;
+    gap: 0.8rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .cta a {
+    text-decoration: none;
+    padding: 0.7rem 1.4rem;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+  }
+
+  .cta a.primary {
+    background: var(--accent);
+    color: #04121d;
+    border-color: transparent;
+  }
+
+  .cta a.secondary {
+    color: var(--text);
+    background: var(--surface);
+  }
+
+  main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  section {
+    padding: 4rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  section:last-of-type { border-bottom: none; }
+
+  section h2 {
+    font-size: 1.7rem;
+    margin-bottom: 0.4rem;
+  }
+
+  section p.lead {
+    color: var(--text-dim);
+    max-width: 720px;
+    margin-bottom: 2rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.4rem;
+  }
+
+  .card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    color: var(--accent-2);
+  }
+
+  .card p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    font-size: 0.92rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  thead th {
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  code {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.1rem 0.4rem;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.88em;
+    color: var(--accent-2);
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.2rem;
+    overflow-x: auto;
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.88rem;
+  }
+
+  pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text);
+  }
+
+  .pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    margin: 1.5rem 0;
+  }
+
+  .pipeline span.step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .pipeline span.arrow {
+    color: var(--text-dim);
+  }
+
+  ol, ul {
+    color: var(--text-dim);
+    padding-left: 1.3rem;
+  }
+
+  ol li, ul li { margin-bottom: 0.4rem; }
+
+  footer {
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  footer a { color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="badge">Model Context Protocol · .NET 9</span>
+  <h1>Datalake-MCP</h1>
+  <p class="tagline">
+    Un server MCP che espone un Azure Data Lake Storage Gen2 a Claude: naviga file e cartelle
+    ed estrae dati da CSV, Parquet, XML, testo e markdown, con letture in streaming e
+    paginazione pensate per la scala.
+  </p>
+  <div class="cta">
+    <a class="primary" href="README.md">Leggi il README</a>
+    <a class="secondary" href="src/Datalake.Mcp.Server">Esplora il codice</a>
+  </div>
+</header>
+
+<main>
+
+  <section id="cosa-fa">
+    <h2>Cosa fa</h2>
+    <p class="lead">
+      Il server si autentica su un account Azure Data Lake Gen2 (accountName/accountKey) ed espone
+      via protocollo MCP un set di tool che permettono a Claude di navigare la struttura del
+      datalake e leggere il contenuto dei file, applicando filtri, proiezioni e paginazione senza
+      mai caricare un intero file in memoria.
+    </p>
+    <div class="grid">
+      <div class="card">
+        <h3>Navigazione</h3>
+        <p>Elenca filesystem, cartelle e file, con metadati (dimensione, ultima modifica).</p>
+      </div>
+      <div class="card">
+        <h3>Lettura multi-formato</h3>
+        <p>CSV, Parquet, XML tabellare, testo (.txt) e markdown (.md), ciascuno con il proprio reader.</p>
+      </div>
+      <div class="card">
+        <h3>Streaming efficiente</h3>
+        <p>Lettura in streaming e a row-group/elemento, con caricamento differito dei byte dal datalake.</p>
+      </div>
+      <div class="card">
+        <h3>Paginazione</h3>
+        <p>Ogni lettura si ferma a un limite di righe/linee e restituisce un <code>nextOffset</code> per proseguire.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="architettura">
+    <h2>Architettura</h2>
+    <p class="lead">Il server è un host .NET Generic Host su trasporto stdio, con un servizio di reader dedicato per ogni formato.</p>
+
+    <div class="pipeline">
+      <span class="step">Claude</span>
+      <span class="arrow">→</span>
+      <span class="step">MCP (stdio)</span>
+      <span class="arrow">→</span>
+      <span class="step">Tools/DataLakeTools.cs</span>
+      <span class="arrow">→</span>
+      <span class="step">Reader Services</span>
+      <span class="arrow">→</span>
+      <span class="step">Azure Data Lake Gen2</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>File</th><th>Responsabilità</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>Configuration/DataLakeOptions.cs</code></td><td>Opzioni di connessione (AccountName / AccountKey / DefaultFileSystem)</td></tr>
+        <tr><td><code>Services/DataLakeService.cs</code></td><td>Wrapper su Azure.Storage.Files.DataLake: navigazione e streaming</td></tr>
+        <tr><td><code>Services/CsvReaderService.cs</code></td><td>Lettura CSV riga per riga, con limite di righe</td></tr>
+        <tr><td><code>Services/ParquetReaderService.cs</code></td><td>Lettura Parquet a row-group, con proiezione colonne</td></tr>
+        <tr><td><code>Services/TextReaderService.cs</code></td><td>Lettura file di testo/markdown riga per riga</td></tr>
+        <tr><td><code>Services/XmlReaderService.cs</code></td><td>Lettura XML tabellare elemento per elemento, con proiezione colonne</td></tr>
+        <tr><td><code>Tools/DataLakeTools.cs</code></td><td>Tool MCP esposti al client</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tool">
+    <h2>Tool MCP esposti</h2>
+    <p class="lead">Ogni tool è pensato per essere composto: prima si esplora, poi si legge lo schema, infine si estraggono i dati a pagine.</p>
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>Descrizione</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>list_filesystems</code></td><td>Elenca i filesystem (container) dell'account</td></tr>
+        <tr><td><code>list_directory</code></td><td>Elenca file e directory in un percorso (opzionalmente ricorsivo)</td></tr>
+        <tr><td><code>get_file_info</code></td><td>Metadati di un file (dimensione, data ultima modifica)</td></tr>
+        <tr><td><code>read_csv</code></td><td>Legge un CSV, con <code>maxRows</code>, delimitatore configurabile e <code>offset</code></td></tr>
+        <tr><td><code>get_parquet_schema</code></td><td>Schema (colonne/tipi) di un Parquet senza leggerne i dati</td></tr>
+        <tr><td><code>read_parquet</code></td><td>Legge un Parquet, con <code>maxRows</code>, proiezione colonne e <code>offset</code></td></tr>
+        <tr><td><code>read_text</code></td><td>Legge un file di testo (.txt), con <code>maxLines</code> e <code>offset</code></td></tr>
+        <tr><td><code>read_markdown</code></td><td>Legge un file markdown (.md), con <code>maxLines</code> e <code>offset</code></td></tr>
+        <tr><td><code>get_xml_schema</code></td><td>Schema (attributi/elementi) dell'elemento record di un XML tabellare</td></tr>
+        <tr><td><code>read_xml</code></td><td>Legge un XML tabellare, con elemento record e colonne opzionali, e <code>offset</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="paginazione">
+    <h2>Paginazione</h2>
+    <p class="lead">
+      Le risposte dei tool di lettura sono soggette al limite di dimensione dei tool call
+      (circa 1 MB). Quando un file eccede <code>maxRows</code>/<code>maxLines</code>, il risultato
+      riporta <code>truncated: true</code> e un <code>nextOffset</code>.
+    </p>
+    <ol>
+      <li>Chiama il tool con <code>offset: 0</code>.</li>
+      <li>Se <code>truncated</code> è <code>true</code>, richiama lo stesso tool con <code>offset = nextOffset</code>.</li>
+      <li>Ripeti finché <code>truncated</code> non è <code>false</code> (<code>nextOffset</code> sarà <code>null</code>).</li>
+    </ol>
+  </section>
+
+  <section id="configurazione">
+    <h2>Configurazione ed esecuzione</h2>
+    <p class="lead">Le credenziali dell'account non vanno mai committate: usa i .NET user-secrets in sviluppo.</p>
+    <pre><code>dotnet user-secrets init
+dotnet user-secrets set "DataLake:AccountName" "&lt;nome-account&gt;"
+dotnet user-secrets set "DataLake:AccountKey" "&lt;chiave-account&gt;"
+dotnet user-secrets set "DataLake:DefaultFileSystem" "&lt;container-predefinito&gt;"
+
+dotnet build
+dotnet test
+dotnet run --project src/Datalake.Mcp.Server</code></pre>
+    <p>
+      Il server comunica via stdio secondo il protocollo MCP: va registrato come server MCP nel
+      client (es. Claude Desktop / Claude Code). Un esempio di configurazione è disponibile in
+      <a href="claude_desktop_config.example.json">claude_desktop_config.example.json</a>.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <p>Datalake-MCP — vedi <a href="README.md">README.md</a> per i dettagli completi e <a href="skill/SKILL.md">skill/SKILL.md</a> per la skill di analisi dati.</p>
+</footer>
+
+</body>
+</html>
