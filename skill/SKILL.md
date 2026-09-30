@@ -124,11 +124,11 @@ VAC = EAC - BAC             (<0 = sforamento previsto)
  
 ## Relazioni tra Tabelle
  
-BuildingRequirements: riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
-Orders: riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
-PurchaseRequests: riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
-EarnCostAccountings: riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
-PaymentCertificates: riferisce Project (ProjectId)
+**BuildingRequirements:** riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
+**Orders:** riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
+**PurchaseRequests:** riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
+**EarnCostAccountings:** riferisce Project (ProjectId), riferisce Products (ProductId), riferisce WorkBreakdownElements (WorkBreakdownElementId)
+**PaymentCertificates:** riferisce Project (ProjectId)
  
 ---
 
@@ -165,10 +165,12 @@ Questo vale soprattutto per `BuildingRequirements`, `Orders`, `EarnCostAccountin
  
 1. **Filtra sempre per progetto** — le analisi vanno limitate a progetti specifici o gruppi
 2. **Verifica CutoffDate** — per EVM deve essere impostata su `Projects`
-3. **Confronta Planned vs Actual** — le misure di varianza identificano i problemi
-4. **Monitora CPI e SPI** — valori <1.0 segnalano criticità
-5. **JPS vs JIS** — JPS è il metodo ufficiale (esterno), JIS per tracking interno
-6. **Pagina sempre fino in fondo** — prima di sommare/aggregare, leggi tutte le pagine di un file
+3. **Confronta Planned (BuildingRequirements) vs Actual (EarnCostAccountings)** — le misure di varianza identificano i problemi
+4. **Confronta Planned (BuildingRequirements) vs Committed (Orders)** — le misure di varianza identificano i problemi
+5. **Confronta Committed (Orders) vs Actual (EarnCostAccountings)** — le misure di varianza identificano i problemi
+6. **Monitora CPI e SPI** — valori <1.0 segnalano criticità
+7. **JPS vs JIS** — JPS è il metodo ufficiale (esterno), JIS per tracking interno
+8. **Pagina sempre fino in fondo** — prima di sommare/aggregare, leggi tutte le pagine di un file
    seguendo `nextOffset` finché `truncated` è `false` (vedi sezione "Lettura dei file e paginazione")
 
 ---
