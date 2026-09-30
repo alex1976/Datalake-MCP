@@ -145,6 +145,14 @@ file XML tabellari (una radice con elementi record ripetuti); se il nome dell'el
 viene individuato correttamente in automatico, specificarlo esplicitamente col parametro
 `recordElement`.
 
+`read_csv`, `read_parquet` e `read_xml` accettano il parametro opzionale `filter`, un elenco di
+condizioni `{column, operator, value}` in AND (operatori: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`,
+`contains`, `startswith`, `endswith`, `isnull`, `isnotnull`), es.
+`[{"column":"ProjectId","operator":"eq","value":"123"}]`. Il filtro è applicato prima di
+`offset`/`maxRows`, quindi la paginazione conta solo le righe filtrate. Usalo per leggere solo le
+righe di un progetto invece di scorrere tutto il file. `read_text`/`read_markdown` accettano
+`contains` per selezionare le righe che contengono un testo.
+
 **IMPORTANTE — per qualsiasi calcolo aggregato (somme, conteggi, medie su `CostAmount`,
 `EarnAmount`, `JPSAmount`, `JISAmount`, ecc.) è obbligatorio leggere **tutte** le righe del file**,
 non solo la prima pagina, altrimenti i totali (costo consuntivo, budget, EVM, margine...) risultano

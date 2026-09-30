@@ -34,33 +34,72 @@ public sealed class XmlReaderService
     }
 
     public async Task<XmlReadResult> ReadAsync(
-        Stream stream, int maxRows, string? recordElement, IReadOnlyList<string>? columns, int offset, CancellationToken cancellationToken)
+        Stream stream, int maxRows, string? recordElement, IReadOnlyList<string>? columns, int offset, CancellationToken cancellationToken,
+        IReadOnlyList<FilterCondition>? filters = null)
     {
+        var filter = RowFilter.Create(filters);
+
         using var reader = CreateReader(stream);
         await reader.MoveToContentAsync();
 
-        var matched = 0;
-        while (matched < offset && await ReadNextMatchingRecordAsync(reader, recordElement, cancellationToken) is not null)
-        {
-            matched++;
-        }
-
         IReadOnlyList<string>? projectedColumns = columns is { Count: > 0 } ? columns : null;
         var rows = new List<IReadOnlyDictionary<string, string?>>();
+        var filterValidated = false;
+        var skipped = 0;
 
         XElement? record;
         while (rows.Count < maxRows && (record = await ReadNextMatchingRecordAsync(reader, recordElement, cancellationToken)) is not null)
         {
+            if (!filterValidated)
+            {
+                filter?.EnsureColumnsExist(BuildColumns(record).Select(c => c.Name));
+                filterValidated = true;
+            }
+
+            if (filter is not null && !filter.Matches(name => GetValue(record, name)))
+            {
+                continue;
+            }
+
+            if (skipped < offset)
+            {
+                skipped++;
+                continue;
+            }
+
             projectedColumns ??= BuildColumns(record).Select(c => c.Name).ToList();
             rows.Add(BuildRow(record, projectedColumns));
         }
 
-        // Peek one record ahead so Truncated (and NextOffset) only reflect real remaining data,
-        // rather than assuming there is more just because maxRows was hit exactly.
-        var truncated = rows.Count == maxRows
-            && await ReadNextMatchingRecordAsync(reader, recordElement, cancellationToken) is not null;
+        // Peek ahead to the next matching record so Truncated (and NextOffset) only reflect real remaining
+        // data, rather than assuming there is more just because maxRows was hit exactly.
+        var truncated = false;
+        if (rows.Count == maxRows)
+        {
+            while ((record = await ReadNextMatchingRecordAsync(reader, recordElement, cancellationToken)) is not null)
+            {
+                if (filter is null || filter.Matches(name => GetValue(record, name)))
+                {
+                    truncated = true;
+                    break;
+                }
+            }
+        }
 
         return new XmlReadResult(projectedColumns ?? [], rows, truncated, offset, truncated ? offset + rows.Count : null);
+    }
+
+    private static string? GetValue(XElement record, string column)
+    {
+        var attribute = record.Attributes()
+            .FirstOrDefault(a => string.Equals(a.Name.LocalName, column, StringComparison.OrdinalIgnoreCase));
+        if (attribute is not null)
+        {
+            return attribute.Value;
+        }
+
+        return record.Elements()
+            .FirstOrDefault(e => string.Equals(e.Name.LocalName, column, StringComparison.OrdinalIgnoreCase))?.Value;
     }
 
     private static async Task<XElement?> ReadNextMatchingRecordAsync(

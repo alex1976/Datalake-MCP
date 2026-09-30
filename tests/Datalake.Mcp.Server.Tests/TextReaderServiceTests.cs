@@ -68,5 +68,17 @@ public class TextReaderServiceTests
         Assert.Null(result.NextOffset);
     }
 
+    [Fact]
+    public async Task ReadAsync_Contains_FiltersLinesAndPagesOverMatches()
+    {
+        using var stream = ToStream("foo 1\nbar\nFOO 2\nbaz\nfoo 3\n");
+
+        var result = await _sut.ReadAsync(stream, maxLines: 1, offset: 1, CancellationToken.None, contains: "foo");
+
+        Assert.Equal(["FOO 2"], result.Lines);
+        Assert.True(result.Truncated);
+        Assert.Equal(2, result.NextOffset);
+    }
+
     private static MemoryStream ToStream(string content) => new(Encoding.UTF8.GetBytes(content));
 }

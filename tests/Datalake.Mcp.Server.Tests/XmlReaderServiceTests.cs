@@ -100,5 +100,29 @@ public class XmlReaderServiceTests
         Assert.Equal(["Alice", "Bob", "Carl"], result.Rows.Select(r => r["Name"]));
     }
 
+    [Fact]
+    public async Task ReadAsync_Filter_MatchesAttributesAndElements()
+    {
+        using var stream = ToStream(SampleXml);
+
+        var result = await _sut.ReadAsync(stream, maxRows: 100, recordElement: null, columns: ["Name"], offset: 0, CancellationToken.None,
+            [new FilterCondition("Price", "gte", "20"), new FilterCondition("id", "ne", "3")]);
+
+        Assert.Equal(["Bob"], result.Rows.Select(r => r["Name"]));
+    }
+
+    [Fact]
+    public async Task ReadAsync_Filter_OffsetAndTruncationCountMatchingRecordsOnly()
+    {
+        using var stream = ToStream(SampleXml);
+
+        var result = await _sut.ReadAsync(stream, maxRows: 1, recordElement: null, columns: ["Name"], offset: 0, CancellationToken.None,
+            [new FilterCondition("Price", "gt", "10")]);
+
+        Assert.Equal(["Bob"], result.Rows.Select(r => r["Name"]));
+        Assert.True(result.Truncated);
+        Assert.Equal(1, result.NextOffset);
+    }
+
     private static MemoryStream ToStream(string content) => new(Encoding.UTF8.GetBytes(content));
 }

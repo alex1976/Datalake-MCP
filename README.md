@@ -26,19 +26,41 @@ tests/Datalake.Mcp.Server.Tests/ Test xUnit per i reader CSV/Parquet/testo/XML
 | `list_filesystems` | Elenca i filesystem (container) dell'account |
 | `list_directory` | Elenca file e directory in un percorso (opzionalmente ricorsivo) |
 | `get_file_info` | Metadati di un file (dimensione, data ultima modifica) |
-| `read_csv` | Legge un CSV, con limite `maxRows`, delimitatore configurabile e `offset` per la paginazione |
+| `read_csv` | Legge un CSV, con limite `maxRows`, delimitatore configurabile e `offset` per la paginazione; filtro opzionale `filter` |
 | `get_parquet_schema` | Restituisce lo schema (colonne/tipi) di un Parquet senza leggerne i dati |
-| `read_parquet` | Legge un Parquet, con `maxRows`, proiezione opzionale delle colonne e `offset` per la paginazione |
-| `read_text` | Legge un file di testo (.txt), con `maxLines` e `offset` per la paginazione |
-| `read_markdown` | Legge un file markdown (.md), con `maxLines` e `offset` per la paginazione |
+| `read_parquet` | Legge un Parquet, con `maxRows`, proiezione opzionale delle colonne e `offset` per la paginazione; filtro opzionale `filter` |
+| `read_text` | Legge un file di testo (.txt), con `maxLines` e `offset` per la paginazione; filtro opzionale `contains` |
+| `read_markdown` | Legge un file markdown (.md), con `maxLines` e `offset` per la paginazione; filtro opzionale `contains` |
 | `get_xml_schema` | Restituisce lo schema (colonne, tra attributi ed elementi) dell'elemento record di un XML tabellare senza leggerne i dati |
-| `read_xml` | Legge un XML tabellare (radice con elementi record ripetuti), con `maxRows`, elemento record e proiezione colonne opzionali, e `offset` per la paginazione |
+| `read_xml` | Legge un XML tabellare (radice con elementi record ripetuti), con `maxRows`, elemento record e proiezione colonne opzionali, e `offset` per la paginazione; filtro opzionale `filter` |
 
 Le letture sono progettate per non caricare interi file in memoria: CSV, testo/markdown e XML
 vengono letti riga/elemento per riga/elemento fermandosi al limite richiesto, mentre Parquet viene
 letto un row-group alla volta. I file remoti vengono aperti con streaming a caricamento differito
 (`DataLakeFileClient.OpenReadAsync`), che scarica solo i byte effettivamente necessari. La lettura
 XML disabilita il DTD processing e la risoluzione di entità esterne per evitare attacchi XXE.
+
+### Filtri
+
+`read_csv`, `read_parquet` e `read_xml` accettano un parametro opzionale `filter`: un elenco di
+condizioni `{ column, operator, value }` combinate in AND, ad esempio:
+
+```json
+[{"column": "stato", "operator": "eq", "value": "APERTO"},
+ {"column": "importo", "operator": "gt", "value": "1000"}]
+```
+
+Operatori: `eq` (`=`), `ne` (`!=`), `gt` (`>`), `gte` (`>=`), `lt` (`<`), `lte` (`<=`), `contains`,
+`startswith`, `endswith`, `isnull`, `isnotnull` (questi ultimi due non richiedono `value`; una stringa
+vuota conta come null). I confronti sono numerici quando cella e valore sono numeri (formato
+invariante, es. `12.5`), sui timestamp Parquet quando il valore è una data, altrimenti testuali
+case-insensitive. Il filtro può riferirsi anche a colonne non proiettate; una colonna inesistente o un
+operatore non valido producono un errore che elenca i valori ammessi.
+
+Il filtro viene applicato durante la lettura in streaming, **prima** di `offset` e `maxRows`: la
+paginazione (`truncated`/`nextOffset`) conta quindi solo le righe che soddisfano il filtro.
+`read_text` e `read_markdown` accettano invece `contains`, che seleziona le righe contenenti il testo
+indicato (case-insensitive).
 
 ### Paginazione
 

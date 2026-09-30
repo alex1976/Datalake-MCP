@@ -61,6 +61,8 @@ public sealed class DataLakeTools(
         [Description("Indica se la prima riga contiene i nomi delle colonne.")] bool hasHeader = true,
         [Description("Numero di righe dati da saltare prima di iniziare a restituire risultati, per leggere pagine successive di un file di grandi dimensioni.")]
         int offset = 0,
+        [Description("Filtri opzionali (colonna/operatore/valore) combinati in AND; vengono applicati prima di offset e maxRows, che contano quindi solo le righe corrispondenti. Esempio: [{\"column\":\"stato\",\"operator\":\"eq\",\"value\":\"APERTO\"},{\"column\":\"importo\",\"operator\":\"gt\",\"value\":\"1000\"}].")]
+        FilterCondition[]? filter = null,
         CancellationToken cancellationToken = default)
     {
         var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
@@ -68,7 +70,7 @@ public sealed class DataLakeTools(
         var boundedOffset = Math.Max(0, offset);
 
         await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
-        return await csvReader.ReadAsync(stream, boundedMaxRows, delimiter, hasHeader, boundedOffset, cancellationToken);
+        return await csvReader.ReadAsync(stream, boundedMaxRows, delimiter, hasHeader, boundedOffset, cancellationToken, filter);
     }
 
     [McpServerTool(Name = "get_parquet_schema"), Description(
@@ -101,6 +103,8 @@ public sealed class DataLakeTools(
         string[]? columns = null,
         [Description("Numero di righe da saltare prima di iniziare a restituire risultati, per leggere pagine successive di un file di grandi dimensioni.")]
         long offset = 0,
+        [Description("Filtri opzionali (colonna/operatore/valore) combinati in AND; vengono applicati prima di offset e maxRows, che contano quindi solo le righe corrispondenti. Esempio: [{\"column\":\"stato\",\"operator\":\"eq\",\"value\":\"APERTO\"},{\"column\":\"importo\",\"operator\":\"gt\",\"value\":\"1000\"}].")]
+        FilterCondition[]? filter = null,
         CancellationToken cancellationToken = default)
     {
         var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
@@ -108,7 +112,7 @@ public sealed class DataLakeTools(
         var boundedOffset = Math.Max(0, offset);
 
         await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
-        return await parquetReader.ReadAsync(stream, boundedMaxRows, columns, boundedOffset, cancellationToken);
+        return await parquetReader.ReadAsync(stream, boundedMaxRows, columns, boundedOffset, cancellationToken, filter);
     }
 
     [McpServerTool(Name = "read_text"), Description(
@@ -124,6 +128,8 @@ public sealed class DataLakeTools(
         int maxLines = DefaultMaxRows,
         [Description("Numero di righe da saltare prima di iniziare a restituire risultati, per leggere pagine successive di un file di grandi dimensioni.")]
         int offset = 0,
+        [Description("Se specificato, vengono considerate solo le righe che contengono questo testo (case-insensitive); offset e maxLines contano solo tali righe.")]
+        string? contains = null,
         CancellationToken cancellationToken = default)
     {
         var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
@@ -131,7 +137,7 @@ public sealed class DataLakeTools(
         var boundedOffset = Math.Max(0, offset);
 
         await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
-        return await textReader.ReadAsync(stream, boundedMaxLines, boundedOffset, cancellationToken);
+        return await textReader.ReadAsync(stream, boundedMaxLines, boundedOffset, cancellationToken, contains);
     }
 
     [McpServerTool(Name = "read_markdown"), Description(
@@ -147,6 +153,8 @@ public sealed class DataLakeTools(
         int maxLines = DefaultMaxRows,
         [Description("Numero di righe da saltare prima di iniziare a restituire risultati, per leggere pagine successive di un file di grandi dimensioni.")]
         int offset = 0,
+        [Description("Se specificato, vengono considerate solo le righe che contengono questo testo (case-insensitive); offset e maxLines contano solo tali righe.")]
+        string? contains = null,
         CancellationToken cancellationToken = default)
     {
         var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
@@ -154,7 +162,7 @@ public sealed class DataLakeTools(
         var boundedOffset = Math.Max(0, offset);
 
         await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
-        return await textReader.ReadAsync(stream, boundedMaxLines, boundedOffset, cancellationToken);
+        return await textReader.ReadAsync(stream, boundedMaxLines, boundedOffset, cancellationToken, contains);
     }
 
     [McpServerTool(Name = "get_xml_schema"), Description(
@@ -192,6 +200,8 @@ public sealed class DataLakeTools(
         string[]? columns = null,
         [Description("Numero di record da saltare prima di iniziare a restituire risultati, per leggere pagine successive di un file di grandi dimensioni.")]
         int offset = 0,
+        [Description("Filtri opzionali (colonna/operatore/valore) combinati in AND; vengono applicati prima di offset e maxRows, che contano quindi solo le righe corrispondenti. Esempio: [{\"column\":\"stato\",\"operator\":\"eq\",\"value\":\"APERTO\"},{\"column\":\"importo\",\"operator\":\"gt\",\"value\":\"1000\"}].")]
+        FilterCondition[]? filter = null,
         CancellationToken cancellationToken = default)
     {
         var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
@@ -199,6 +209,6 @@ public sealed class DataLakeTools(
         var boundedOffset = Math.Max(0, offset);
 
         await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
-        return await xmlReader.ReadAsync(stream, boundedMaxRows, recordElement, columns, boundedOffset, cancellationToken);
+        return await xmlReader.ReadAsync(stream, boundedMaxRows, recordElement, columns, boundedOffset, cancellationToken, filter);
     }
 }

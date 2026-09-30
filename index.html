@@ -328,13 +328,13 @@
         <tr><td><code>list_filesystems</code></td><td>Elenca i filesystem (container) dell'account</td></tr>
         <tr><td><code>list_directory</code></td><td>Elenca file e directory in un percorso (opzionalmente ricorsivo)</td></tr>
         <tr><td><code>get_file_info</code></td><td>Metadati di un file (dimensione, data ultima modifica)</td></tr>
-        <tr><td><code>read_csv</code></td><td>Legge un CSV, con <code>maxRows</code>, delimitatore configurabile e <code>offset</code></td></tr>
+        <tr><td><code>read_csv</code></td><td>Legge un CSV, con <code>maxRows</code>, delimitatore configurabile e <code>offset</code> e filtro <code>filter</code></td></tr>
         <tr><td><code>get_parquet_schema</code></td><td>Schema (colonne/tipi) di un Parquet senza leggerne i dati</td></tr>
-        <tr><td><code>read_parquet</code></td><td>Legge un Parquet, con <code>maxRows</code>, proiezione colonne e <code>offset</code></td></tr>
-        <tr><td><code>read_text</code></td><td>Legge un file di testo (.txt), con <code>maxLines</code> e <code>offset</code></td></tr>
-        <tr><td><code>read_markdown</code></td><td>Legge un file markdown (.md), con <code>maxLines</code> e <code>offset</code></td></tr>
+        <tr><td><code>read_parquet</code></td><td>Legge un Parquet, con <code>maxRows</code>, proiezione colonne e <code>offset</code> e filtro <code>filter</code></td></tr>
+        <tr><td><code>read_text</code></td><td>Legge un file di testo (.txt), con <code>maxLines</code> e <code>offset</code> e filtro <code>contains</code></td></tr>
+        <tr><td><code>read_markdown</code></td><td>Legge un file markdown (.md), con <code>maxLines</code> e <code>offset</code> e filtro <code>contains</code></td></tr>
         <tr><td><code>get_xml_schema</code></td><td>Schema (attributi/elementi) dell'elemento record di un XML tabellare</td></tr>
-        <tr><td><code>read_xml</code></td><td>Legge un XML tabellare, con elemento record e colonne opzionali, e <code>offset</code></td></tr>
+        <tr><td><code>read_xml</code></td><td>Legge un XML tabellare, con elemento record e colonne opzionali, e <code>offset</code> e filtro <code>filter</code></td></tr>
       </tbody>
     </table>
   </section>

@@ -83,6 +83,27 @@ public class ParquetReaderServiceTests
         Assert.Null(result.NextOffset);
     }
 
+    [Fact]
+    public async Task ReadAsync_Filter_MatchesOnNonProjectedColumn()
+    {
+        using var stream = await CreateSampleParquetAsync();
+
+        var result = await _sut.ReadAsync(stream, maxRows: 100, columns: ["Name"], offset: 0, CancellationToken.None,
+            [new FilterCondition("Id", "gte", "2")]);
+
+        Assert.Equal(["Bob", "Carol"], result.Rows.Select(r => r["Name"]));
+    }
+
+    [Fact]
+    public async Task ReadAsync_Filter_UnknownColumnThrows()
+    {
+        using var stream = await CreateSampleParquetAsync();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => _sut.ReadAsync(
+            stream, maxRows: 100, columns: null, offset: 0, CancellationToken.None,
+            [new FilterCondition("Nope", "eq", "1")]));
+    }
+
     private static async Task<MemoryStream> CreateSampleParquetAsync()
     {
         var rows = new[]

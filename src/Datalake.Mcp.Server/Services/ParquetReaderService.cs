@@ -30,8 +30,11 @@ public sealed class ParquetReaderService
     }
 
     public async Task<ParquetReadResult> ReadAsync(
-        Stream stream, int maxRows, IReadOnlyList<string>? columns, long offset, CancellationToken cancellationToken)
+        Stream stream, int maxRows, IReadOnlyList<string>? columns, long offset, CancellationToken cancellationToken,
+        IReadOnlyList<FilterCondition>? filters = null)
     {
+        var filter = RowFilter.Create(filters);
+
         int rowGroupCount;
         IReadOnlyList<string> allColumnNames;
         await using (var reader = await ParquetReader.CreateAsync(stream, cancellationToken: cancellationToken))
@@ -39,6 +42,8 @@ public sealed class ParquetReaderService
             rowGroupCount = reader.RowGroupCount;
             allColumnNames = reader.Schema.GetDataFields().Select(f => f.Name).ToList();
         }
+
+        filter?.EnsureColumnsExist(allColumnNames);
 
         var projectedColumns = columns is { Count: > 0 }
             ? allColumnNames.Where(c => columns.Contains(c, StringComparer.OrdinalIgnoreCase)).ToList()
@@ -58,6 +63,13 @@ public sealed class ParquetReaderService
 
             foreach (var record in result.Data)
             {
+                // Filter columns need not be projected: the record still carries every column.
+                // globalRowIndex then counts matching rows only, so offset pages over the filtered set.
+                if (filter is not null && !filter.Matches(name => GetValue(record, name)))
+                {
+                    continue;
+                }
+
                 if (globalRowIndex < offset)
                 {
                     globalRowIndex++;
@@ -88,5 +100,15 @@ public sealed class ParquetReaderService
         }
 
         return new ParquetReadResult(projectedColumns, rows, truncated, totalRowCount, offset, truncated ? offset + rows.Count : null);
+    }
+
+    private static object? GetValue(IDictionary<string, object> record, string name)
+    {
+        if (record.TryGetValue(name, out var value))
+        {
+            return value;
+        }
+
+        return record.FirstOrDefault(kv => string.Equals(kv.Key, name, StringComparison.OrdinalIgnoreCase)).Value;
     }
 }
