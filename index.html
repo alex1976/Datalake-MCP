@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Datalake-MCP — Azure Data Lake per Claude</title>
+<title>Datalake-MCP — Azure Data Lake for Claude</title>
 <style>
   :root {
     --bg: #0b0f14;
@@ -237,10 +237,187 @@
   }
 
   footer a { color: var(--text-dim); }
+
+  html[lang="en"] .t-it { display: none; }
+  html[lang="it"] .t-en { display: none; }
+
+  .lang-switch {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10;
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .lang-switch button {
+    appearance: none;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 0.35rem 0.9rem;
+    cursor: pointer;
+  }
+
+  .lang-switch button[aria-pressed="true"] {
+    background: var(--accent);
+    color: #04121d;
+  }
 </style>
 </head>
 <body>
 
+<div class="lang-switch" role="group" aria-label="Language">
+  <button type="button" data-lang="it" aria-pressed="false">IT</button>
+  <button type="button" data-lang="en" aria-pressed="true">EN</button>
+</div>
+
+<div class="t-en" lang="en">
+<header>
+  <span class="badge">Model Context Protocol · .NET 9</span>
+  <h1>Datalake-MCP</h1>
+  <p class="tagline">
+    An MCP server that exposes an Azure Data Lake Storage Gen2 account to Claude: browse files
+    and folders and extract data from CSV, Parquet, XML, text and markdown, with streaming
+    reads and pagination built for scale.
+  </p>
+  <div class="cta">
+    <a class="primary" href="README.md">Read the README</a>
+    <a class="secondary" href="src/Datalake.Mcp.Server">Explore the code</a>
+  </div>
+</header>
+
+<main>
+
+  <section id="what-it-does">
+    <h2>What it does</h2>
+    <p class="lead">
+      The server authenticates against an Azure Data Lake Gen2 account (accountName/accountKey) and
+      exposes, via the MCP protocol, a set of tools that let Claude browse the structure of the
+      data lake and read file contents, applying filters, projections and pagination without
+      ever loading a whole file into memory.
+    </p>
+    <div class="grid">
+      <div class="card">
+        <h3>Navigation</h3>
+        <p>Lists filesystems, folders and files, with metadata (size, last modified).</p>
+      </div>
+      <div class="card">
+        <h3>Multi-format reading</h3>
+        <p>CSV, Parquet, tabular XML, text (.txt) and markdown (.md), each with its own reader.</p>
+      </div>
+      <div class="card">
+        <h3>Efficient streaming</h3>
+        <p>Streaming reads by row group/element, with lazy loading of bytes from the data lake.</p>
+      </div>
+      <div class="card">
+        <h3>Pagination</h3>
+        <p>Every read stops at a row/line limit and returns a <code>nextOffset</code> to continue.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2>Architecture</h2>
+    <p class="lead">The server is a .NET Generic Host over stdio transport, with a dedicated reader service for each format.</p>
+
+    <div class="pipeline">
+      <span class="step">Claude</span>
+      <span class="arrow">→</span>
+      <span class="step">MCP (stdio)</span>
+      <span class="arrow">→</span>
+      <span class="step">Tools/DataLakeTools.cs</span>
+      <span class="arrow">→</span>
+      <span class="step">Reader Services</span>
+      <span class="arrow">→</span>
+      <span class="step">Azure Data Lake Gen2</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>File</th><th>Responsibility</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>Configuration/DataLakeOptions.cs</code></td><td>Connection options (AccountName / AccountKey / DefaultFileSystem)</td></tr>
+        <tr><td><code>Services/DataLakeService.cs</code></td><td>Wrapper around Azure.Storage.Files.DataLake: navigation and streaming</td></tr>
+        <tr><td><code>Services/CsvReaderService.cs</code></td><td>Row-by-row CSV reading, with a row limit</td></tr>
+        <tr><td><code>Services/ParquetReaderService.cs</code></td><td>Row-group Parquet reading, with column projection</td></tr>
+        <tr><td><code>Services/TextReaderService.cs</code></td><td>Line-by-line reading of text/markdown files</td></tr>
+        <tr><td><code>Services/XmlReaderService.cs</code></td><td>Element-by-element reading of tabular XML, with column projection</td></tr>
+        <tr><td><code>Tools/DataLakeTools.cs</code></td><td>MCP tools exposed to the client</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tools">
+    <h2>Exposed MCP tools</h2>
+    <p class="lead">Each tool is designed to be composed: first explore, then read the schema, finally extract the data page by page.</p>
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>list_filesystems</code></td><td>Lists the account's filesystems (containers)</td></tr>
+        <tr><td><code>list_directory</code></td><td>Lists files and directories in a path (optionally recursive)</td></tr>
+        <tr><td><code>get_file_info</code></td><td>File metadata (size, last modified date)</td></tr>
+        <tr><td><code>read_csv</code></td><td>Reads a CSV, with <code>maxRows</code>, configurable delimiter, <code>offset</code> and a <code>filter</code></td></tr>
+        <tr><td><code>get_parquet_schema</code></td><td>Schema (columns/types) of a Parquet file without reading its data</td></tr>
+        <tr><td><code>read_parquet</code></td><td>Reads a Parquet file, with <code>maxRows</code>, column projection, <code>offset</code> and a <code>filter</code></td></tr>
+        <tr><td><code>read_text</code></td><td>Reads a text file (.txt), with <code>maxLines</code>, <code>offset</code> and a <code>contains</code> filter</td></tr>
+        <tr><td><code>read_markdown</code></td><td>Reads a markdown file (.md), with <code>maxLines</code>, <code>offset</code> and a <code>contains</code> filter</td></tr>
+        <tr><td><code>get_xml_schema</code></td><td>Schema (attributes/elements) of the record element of a tabular XML file</td></tr>
+        <tr><td><code>read_xml</code></td><td>Reads a tabular XML file, with optional record element and columns, <code>offset</code> and a <code>filter</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="pagination">
+    <h2>Pagination</h2>
+    <p class="lead">
+      Responses from the read tools are subject to the tool call size limit
+      (about 1 MB). When a file exceeds <code>maxRows</code>/<code>maxLines</code>, the result
+      reports <code>truncated: true</code> and a <code>nextOffset</code>.
+    </p>
+    <ol>
+      <li>Call the tool with <code>offset: 0</code>.</li>
+      <li>If <code>truncated</code> is <code>true</code>, call the same tool again with <code>offset = nextOffset</code>.</li>
+      <li>Repeat until <code>truncated</code> is <code>false</code> (<code>nextOffset</code> will be <code>null</code>).</li>
+    </ol>
+  </section>
+
+  <section id="configuration">
+    <h2>Configuration and running</h2>
+    <p class="lead">Never commit account credentials: use .NET user-secrets during development.</p>
+    <pre><code>dotnet user-secrets init
+dotnet user-secrets set "DataLake:AccountName" "&lt;account-name&gt;"
+dotnet user-secrets set "DataLake:AccountKey" "&lt;account-key&gt;"
+dotnet user-secrets set "DataLake:DefaultFileSystem" "&lt;default-container&gt;"
+
+dotnet build
+dotnet test
+dotnet run --project src/Datalake.Mcp.Server</code></pre>
+    <p>
+      The server communicates over stdio using the MCP protocol: it must be registered as an MCP
+      server in the client (e.g. Claude Desktop / Claude Code). An example configuration is
+      available in <a href="claude_desktop_config.example.json">claude_desktop_config.example.json</a>.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <p>Datalake-MCP — see <a href="README.md">README.md</a> for full details and <a href="skill/SKILL.md">skill/SKILL.md</a> for the data analysis skill.</p>
+</footer>
+</div>
+
+<div class="t-it" lang="it">
 <header>
   <span class="badge">Model Context Protocol · .NET 9</span>
   <h1>Datalake-MCP</h1>
@@ -376,6 +553,35 @@ dotnet run --project src/Datalake.Mcp.Server</code></pre>
 <footer>
   <p>Datalake-MCP — vedi <a href="README.md">README.md</a> per i dettagli completi e <a href="skill/SKILL.md">skill/SKILL.md</a> per la skill di analisi dati.</p>
 </footer>
+</div>
+
+<script>
+  (function () {
+    var titles = {
+      en: "Datalake-MCP — Azure Data Lake for Claude",
+      it: "Datalake-MCP — Azure Data Lake per Claude"
+    };
+    var root = document.documentElement;
+    var buttons = document.querySelectorAll(".lang-switch button");
+
+    function setLang(lang) {
+      root.lang = lang;
+      document.title = titles[lang];
+      buttons.forEach(function (b) {
+        b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+      });
+      try { localStorage.setItem("lang", lang); } catch (e) {}
+    }
+
+    buttons.forEach(function (b) {
+      b.addEventListener("click", function () { setLang(b.dataset.lang); });
+    });
+
+    var saved = null;
+    try { saved = localStorage.getItem("lang"); } catch (e) {}
+    setLang(saved || (/^it\b/i.test(navigator.language) ? "it" : "en"));
+  })();
+</script>
 
 </body>
 </html>
