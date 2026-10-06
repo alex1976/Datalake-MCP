@@ -18,6 +18,7 @@ builder.Services.AddSingleton<CsvReaderService>();
 builder.Services.AddSingleton<ParquetReaderService>();
 builder.Services.AddSingleton<TextReaderService>();
 builder.Services.AddSingleton<XmlReaderService>();
+builder.Services.AddSingleton<FileWriterService>();
 
 builder.Services
     .AddMcpServer()

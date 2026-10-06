@@ -168,6 +168,27 @@ Questo vale soprattutto per `BuildingRequirements`, `Orders`, `EarnCostAccountin
 `PurchaseRequests`, che possono contenere molte righe per progetto.
 
 ---
+
+## Salvataggio di file e ricerca nell'indice
+
+Per conservare risultati di analisi nel datalake usa i tool `save_text` (.txt), `save_markdown` (.md),
+`save_csv` (.csv, contenuto CSV completo con intestazione), `save_parquet` (.parquet, array di righe
+oggetto colonna→valore) e `save_pdf` (.pdf, contenuto base64). Parametri comuni: `path` (comprese
+cartelle/sottocartelle, create se mancanti; l'estensione deve corrispondere al formato), `description`
+opzionale e `overwrite` (default false: un file esistente non viene sostituito). **Non salvare mai
+dentro le cartelle dei dati di progetto** (Projects, Orders, ecc.): usa una cartella dedicata, es.
+`Analisi/<progetto>/`.
+
+Ogni salvataggio viene registrato nel file di indice `saved-files-index.csv` (radice del filesystem;
+colonne `path,name,format,sizeBytes,savedAt,description`). Per ritrovare un file salvato usa
+`search_file` con `nomeFile` (il nome *contiene* il testo, case-insensitive) e/o `tipoFile` (csv,
+parquet, pdf, md, txt). Se viene trovato **un solo file** il tool ne restituisce anche il contenuto
+(primi `maxRows` righe; se `truncated` è true prosegui con il tool `read_*` e `offset = nextOffset`;
+per i pdf solo i metadati); con più file restituisce l'elenco e devi scegliere il `path` da leggere.
+Per i CSV con separatore diverso da `,` passa `delimiter`. `search_file` cerca solo i file salvati con
+i tool `save_*`, non quelli già presenti nel datalake.
+
+---
  
 ## Best Practice per le Analisi
  

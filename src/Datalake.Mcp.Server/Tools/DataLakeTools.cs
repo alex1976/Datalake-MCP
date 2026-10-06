@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json;
 using Datalake.Mcp.Server.Services;
 using ModelContextProtocol.Server;
 
@@ -10,7 +11,8 @@ public sealed class DataLakeTools(
     CsvReaderService csvReader,
     ParquetReaderService parquetReader,
     TextReaderService textReader,
-    XmlReaderService xmlReader)
+    XmlReaderService xmlReader,
+    FileWriterService fileWriter)
 {
     private const int DefaultMaxRows = 200;
     private const int HardMaxRows = 10_000;
@@ -211,4 +213,130 @@ public sealed class DataLakeTools(
         await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, path, cancellationToken);
         return await xmlReader.ReadAsync(stream, boundedMaxRows, recordElement, columns, boundedOffset, cancellationToken, filter);
     }
+
+    private const string SaveNote =
+        " Il file viene registrato (percorso, nome, formato, dimensione, data, descrizione) nel file di indice " +
+        "del filesystem (DataLake:SavedFilesIndexPath, un CSV leggibile con read_csv). Le directory mancanti vengono create. " +
+        "Un file già esistente non viene sostituito a meno che overwrite sia true.";
+
+    private async Task<FileIndexEntry> SaveAsync(
+        string path, string[] extensions, string format, byte[] content, string? fileSystem, string? description,
+        bool overwrite, CancellationToken cancellationToken)
+    {
+        if (!extensions.Any(e => path.EndsWith(e, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException($"Il percorso deve terminare con {string.Join(" o ", extensions)}.", nameof(path));
+        }
+
+        var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
+        return await dataLake.SaveFileAsync(resolvedFileSystem, path, content, format, description, overwrite, cancellationToken);
+    }
+
+    [McpServerTool(Name = "search_file"), Description(
+        "Cerca nell'indice dei file salvati con i tool save_* (non scansiona il datalake). Restituisce i file il cui nome " +
+        "contiene 'nomeFile' (case-insensitive) e, se indicato, di tipo 'tipoFile'; il 'path' restituito si passa " +
+        "direttamente ai tool read_* o get_file_info. Se viene trovato un solo file ne restituisce anche il contenuto " +
+        "(csv, parquet, txt, md; per i pdf solo i metadati): se il contenuto ha 'truncated' true, continua con il tool " +
+        "read_* corrispondente passando 'offset' = 'nextOffset'. Con più file restituisce solo l'elenco.")]
+    public async Task<SearchFileResult> SearchFileAsync(
+        [Description("Testo che il nome del file deve contenere (anche parziale, case-insensitive). Se omesso non filtra per nome.")]
+        string? nomeFile = null,
+        [Description("Tipo di file: csv, parquet, pdf, md, txt (accettati anche '.csv', 'markdown', 'text'). Se omesso non filtra per tipo.")]
+        string? tipoFile = null,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Numero massimo di righe del contenuto da restituire se viene trovato un solo file (default 200, massimo 10000).")]
+        int maxRows = DefaultMaxRows,
+        [Description("Separatore di campo usato per leggere il contenuto se l'unico file trovato è un CSV.")]
+        string delimiter = ",",
+        CancellationToken cancellationToken = default)
+    {
+        var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
+        var files = await dataLake.SearchFilesAsync(resolvedFileSystem, nomeFile, tipoFile, cancellationToken);
+        if (files.Count != 1)
+        {
+            return new SearchFileResult(files, null, null);
+        }
+
+        var file = files[0];
+        var boundedMaxRows = Math.Clamp(maxRows, 1, HardMaxRows);
+
+        if (file.Format is not ("csv" or "parquet" or "txt" or "md"))
+        {
+            return new SearchFileResult(files, null, $"Il contenuto dei file '{file.Format}' non è leggibile come testo: sono disponibili solo i metadati.");
+        }
+
+        await using var stream = await dataLake.OpenReadAsync(resolvedFileSystem, file.Path, cancellationToken);
+        object content = file.Format switch
+        {
+            "csv" => await csvReader.ReadAsync(stream, boundedMaxRows, delimiter, true, 0, cancellationToken, null),
+            "parquet" => await parquetReader.ReadAsync(stream, boundedMaxRows, null, 0, cancellationToken, null),
+            _ => await textReader.ReadAsync(stream, boundedMaxRows, 0, cancellationToken, null),
+        };
+
+        return new SearchFileResult(files, content, null);
+    }
+
+    [McpServerTool(Name = "save_text"), Description("Salva un file di testo (.txt) nel datalake." + SaveNote)]
+    public async Task<FileIndexEntry> SaveTextAsync(
+        [Description("Percorso completo del file da creare (cartelle/sottocartelle incluse), es. 'report/2026/note.txt'.")] string path,
+        [Description("Contenuto testuale del file.")] string content,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Descrizione opzionale da riportare nel file di indice.")] string? description = null,
+        [Description("Se true sostituisce un file già esistente.")] bool overwrite = false,
+        CancellationToken cancellationToken = default)
+        => await SaveAsync(path, [".txt"], "txt", fileWriter.BuildText(content), fileSystem, description, overwrite, cancellationToken);
+
+    [McpServerTool(Name = "save_markdown"), Description("Salva un file markdown (.md) nel datalake." + SaveNote)]
+    public async Task<FileIndexEntry> SaveMarkdownAsync(
+        [Description("Percorso completo del file da creare (cartelle/sottocartelle incluse), es. 'report/2026/sintesi.md'.")] string path,
+        [Description("Contenuto markdown del file.")] string content,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Descrizione opzionale da riportare nel file di indice.")] string? description = null,
+        [Description("Se true sostituisce un file già esistente.")] bool overwrite = false,
+        CancellationToken cancellationToken = default)
+        => await SaveAsync(path, [".md"], "md", fileWriter.BuildText(content), fileSystem, description, overwrite, cancellationToken);
+
+    [McpServerTool(Name = "save_csv"), Description(
+        "Salva un file CSV (.csv) nel datalake. Il contenuto deve essere testo CSV completo (intestazione inclusa) " +
+        "con lo stesso numero di campi in ogni riga." + SaveNote)]
+    public async Task<FileIndexEntry> SaveCsvAsync(
+        [Description("Percorso completo del file da creare (cartelle/sottocartelle incluse), es. 'export/2026/clienti.csv'.")] string path,
+        [Description("Contenuto CSV completo, intestazione inclusa.")] string content,
+        [Description("Carattere separatore di campo.")] string delimiter = ",",
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Descrizione opzionale da riportare nel file di indice.")] string? description = null,
+        [Description("Se true sostituisce un file già esistente.")] bool overwrite = false,
+        CancellationToken cancellationToken = default)
+        => await SaveAsync(path, [".csv"], "csv", fileWriter.BuildCsv(content, delimiter), fileSystem, description, overwrite, cancellationToken);
+
+    [McpServerTool(Name = "save_parquet"), Description(
+        "Salva un file Parquet (.parquet) nel datalake a partire da un elenco di righe. Il tipo di ogni colonna viene " +
+        "dedotto dai valori (bool, intero, decimale, altrimenti stringa); tutte le colonne ammettono null." + SaveNote)]
+    public async Task<FileIndexEntry> SaveParquetAsync(
+        [Description("Percorso completo del file da creare (cartelle/sottocartelle incluse), es. 'export/2026/clienti.parquet'.")] string path,
+        [Description("Righe da scrivere: array di oggetti nome colonna → valore, es. [{\"id\":1,\"nome\":\"Rossi\"},{\"id\":2,\"nome\":null}].")]
+        Dictionary<string, JsonElement>[] rows,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Descrizione opzionale da riportare nel file di indice.")] string? description = null,
+        [Description("Se true sostituisce un file già esistente.")] bool overwrite = false,
+        CancellationToken cancellationToken = default)
+        => await SaveAsync(path, [".parquet"], "parquet", await fileWriter.BuildParquetAsync(rows, cancellationToken),
+            fileSystem, description, overwrite, cancellationToken);
+
+    [McpServerTool(Name = "save_pdf"), Description(
+        "Salva un file PDF (.pdf) nel datalake. Il contenuto va fornito come PDF già generato, codificato in base64." + SaveNote)]
+    public async Task<FileIndexEntry> SavePdfAsync(
+        [Description("Percorso completo del file da creare (cartelle/sottocartelle incluse), es. 'documenti/2026/offerta.pdf'.")] string path,
+        [Description("Contenuto del PDF codificato in base64.")] string contentBase64,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        [Description("Descrizione opzionale da riportare nel file di indice.")] string? description = null,
+        [Description("Se true sostituisce un file già esistente.")] bool overwrite = false,
+        CancellationToken cancellationToken = default)
+        => await SaveAsync(path, [".pdf"], "pdf", fileWriter.BuildPdf(contentBase64), fileSystem, description, overwrite, cancellationToken);
 }

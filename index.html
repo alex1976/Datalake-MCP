@@ -314,6 +314,10 @@
         <p>CSV, Parquet, tabular XML, text (.txt) and markdown (.md), each with its own reader.</p>
       </div>
       <div class="card">
+        <h3>Saving and search</h3>
+        <p>Saves text, markdown, CSV, Parquet and PDF files, records them in an index and finds them again with <code>search_file</code>.</p>
+      </div>
+      <div class="card">
         <h3>Efficient streaming</h3>
         <p>Streaming reads by row group/element, with lazy loading of bytes from the data lake.</p>
       </div>
@@ -351,6 +355,8 @@
         <tr><td><code>Services/ParquetReaderService.cs</code></td><td>Row-group Parquet reading, with column projection</td></tr>
         <tr><td><code>Services/TextReaderService.cs</code></td><td>Line-by-line reading of text/markdown files</td></tr>
         <tr><td><code>Services/XmlReaderService.cs</code></td><td>Element-by-element reading of tabular XML, with column projection</td></tr>
+        <tr><td><code>Services/FileWriterService.cs</code></td><td>Builds and validates the bytes to save (text, CSV, Parquet, PDF)</td></tr>
+        <tr><td><code>Services/FileIndex.cs</code></td><td>Saved-files CSV index: upsert, parsing and search</td></tr>
         <tr><td><code>Tools/DataLakeTools.cs</code></td><td>MCP tools exposed to the client</td></tr>
       </tbody>
     </table>
@@ -374,8 +380,28 @@
         <tr><td><code>read_markdown</code></td><td>Reads a markdown file (.md), with <code>maxLines</code>, <code>offset</code> and a <code>contains</code> filter</td></tr>
         <tr><td><code>get_xml_schema</code></td><td>Schema (attributes/elements) of the record element of a tabular XML file</td></tr>
         <tr><td><code>read_xml</code></td><td>Reads a tabular XML file, with optional record element and columns, <code>offset</code> and a <code>filter</code></td></tr>
+        <tr><td><code>save_text</code></td><td>Saves a <code>.txt</code> file in a folder/subfolder of the data lake</td></tr>
+        <tr><td><code>save_markdown</code></td><td>Saves a <code>.md</code> file</td></tr>
+        <tr><td><code>save_csv</code></td><td>Saves a <code>.csv</code> file from CSV text (validated: same number of fields on every row)</td></tr>
+        <tr><td><code>save_parquet</code></td><td>Saves a <code>.parquet</code> file from a list of rows (column → value objects); types are inferred</td></tr>
+        <tr><td><code>save_pdf</code></td><td>Saves a <code>.pdf</code> file from base64 content (the <code>%PDF-</code> header is checked)</td></tr>
+        <tr><td><code>search_file</code></td><td>Searches the saved-files index by <code>nomeFile</code> (contains, case-insensitive) and/or <code>tipoFile</code>; if exactly one file matches, its content is returned too</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="saving">
+    <h2>Saving files and index</h2>
+    <p class="lead">
+      The <code>save_*</code> tools take <code>path</code> (missing folders are created), <code>fileSystem</code>,
+      <code>description</code> and <code>overwrite</code>. Without <code>overwrite=true</code> an existing file is never replaced.
+    </p>
+    <p>
+      Every save is recorded in the index <code>DataLake:SavedFilesIndexPath</code> (default
+      <code>saved-files-index.csv</code> at the filesystem root), a CSV readable with <code>read_csv</code> with columns
+      <code>path,name,format,sizeBytes,savedAt,description</code>. Saving the same path again updates its row; the index is
+      updated with optimistic concurrency (ETag, up to 5 attempts). <code>search_file</code> queries this index.
+    </p>
   </section>
 
   <section id="pagination">
@@ -452,6 +478,10 @@ dotnet run --project src/Datalake.Mcp.Server</code></pre>
         <p>CSV, Parquet, XML tabellare, testo (.txt) e markdown (.md), ciascuno con il proprio reader.</p>
       </div>
       <div class="card">
+        <h3>Salvataggio e ricerca</h3>
+        <p>Salva file testo, markdown, CSV, Parquet e PDF, li registra in un indice e li ritrova con <code>search_file</code>.</p>
+      </div>
+      <div class="card">
         <h3>Streaming efficiente</h3>
         <p>Lettura in streaming e a row-group/elemento, con caricamento differito dei byte dal datalake.</p>
       </div>
@@ -489,6 +519,8 @@ dotnet run --project src/Datalake.Mcp.Server</code></pre>
         <tr><td><code>Services/ParquetReaderService.cs</code></td><td>Lettura Parquet a row-group, con proiezione colonne</td></tr>
         <tr><td><code>Services/TextReaderService.cs</code></td><td>Lettura file di testo/markdown riga per riga</td></tr>
         <tr><td><code>Services/XmlReaderService.cs</code></td><td>Lettura XML tabellare elemento per elemento, con proiezione colonne</td></tr>
+        <tr><td><code>Services/FileWriterService.cs</code></td><td>Costruzione e validazione dei byte da salvare (testo, CSV, Parquet, PDF)</td></tr>
+        <tr><td><code>Services/FileIndex.cs</code></td><td>Indice CSV dei file salvati: upsert, parsing e ricerca</td></tr>
         <tr><td><code>Tools/DataLakeTools.cs</code></td><td>Tool MCP esposti al client</td></tr>
       </tbody>
     </table>
@@ -512,8 +544,28 @@ dotnet run --project src/Datalake.Mcp.Server</code></pre>
         <tr><td><code>read_markdown</code></td><td>Legge un file markdown (.md), con <code>maxLines</code> e <code>offset</code> e filtro <code>contains</code></td></tr>
         <tr><td><code>get_xml_schema</code></td><td>Schema (attributi/elementi) dell'elemento record di un XML tabellare</td></tr>
         <tr><td><code>read_xml</code></td><td>Legge un XML tabellare, con elemento record e colonne opzionali, e <code>offset</code> e filtro <code>filter</code></td></tr>
+        <tr><td><code>save_text</code></td><td>Salva un file <code>.txt</code> in una cartella/sottocartella del datalake</td></tr>
+        <tr><td><code>save_markdown</code></td><td>Salva un file <code>.md</code></td></tr>
+        <tr><td><code>save_csv</code></td><td>Salva un file <code>.csv</code> da testo CSV (validato: stesso numero di campi per riga)</td></tr>
+        <tr><td><code>save_parquet</code></td><td>Salva un file <code>.parquet</code> da un elenco di righe (oggetti colonna → valore); i tipi sono dedotti</td></tr>
+        <tr><td><code>save_pdf</code></td><td>Salva un file <code>.pdf</code> da contenuto base64 (verificata l'intestazione <code>%PDF-</code>)</td></tr>
+        <tr><td><code>search_file</code></td><td>Cerca nell'indice dei file salvati per <code>nomeFile</code> (contiene, case-insensitive) e/o <code>tipoFile</code>; se trova un solo file ne restituisce anche il contenuto</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="salvataggio">
+    <h2>Salvataggio file e indice</h2>
+    <p class="lead">
+      I tool <code>save_*</code> accettano <code>path</code> (le cartelle mancanti vengono create), <code>fileSystem</code>,
+      <code>description</code> e <code>overwrite</code>. Senza <code>overwrite=true</code> un file esistente non viene mai sostituito.
+    </p>
+    <p>
+      Ogni salvataggio viene registrato nell'indice <code>DataLake:SavedFilesIndexPath</code> (default
+      <code>saved-files-index.csv</code>, nella radice del filesystem), un CSV leggibile con <code>read_csv</code> con colonne
+      <code>path,name,format,sizeBytes,savedAt,description</code>. Salvare di nuovo lo stesso percorso aggiorna la riga; l'indice
+      è aggiornato con concurrency ottimistica (ETag, fino a 5 tentativi). <code>search_file</code> interroga questo indice.
+    </p>
   </section>
 
   <section id="paginazione">

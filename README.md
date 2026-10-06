@@ -1,8 +1,8 @@
 # Datalake-MCP
 
 **Server MCP** (Model Context Protocol) che espone un Azure Data Lake Storage Gen2 a Claude,
-consentendo di navigare i file e leggerne il contenuto in formato CSV, Parquet, testo (.txt),
-markdown (.md) o XML.
+consentendo di navigare i file, leggerne il contenuto in formato CSV, Parquet, testo (.txt),
+markdown (.md) o XML, e di salvare file (testo, markdown, CSV, Parquet, PDF) con un indice ricercabile.
 
 ## Struttura della soluzione
 
@@ -15,8 +15,10 @@ src/Datalake.Mcp.Server/         Server MCP (host .NET Generic Host, trasporto s
   Services/ParquetReaderService.cs   Lettura Parquet a row-group, con proiezione colonne
   Services/TextReaderService.cs      Lettura file di testo/markdown riga per riga (streaming)
   Services/XmlReaderService.cs       Lettura XML tabellare elemento per elemento, con proiezione colonne
+  Services/FileWriterService.cs     Costruzione/validazione dei byte da salvare (testo, CSV, Parquet, PDF)
+  Services/FileIndex.cs              Indice CSV dei file salvati (upsert, parsing, ricerca)
   Tools/DataLakeTools.cs             Tool MCP esposti al client (list_filesystems, read_csv, ...)
-tests/Datalake.Mcp.Server.Tests/ Test xUnit per i reader CSV/Parquet/testo/XML
+tests/Datalake.Mcp.Server.Tests/ Test xUnit per reader CSV/Parquet/testo/XML, writer e indice
 ```
 
 ## Tool MCP esposti
@@ -33,6 +35,13 @@ tests/Datalake.Mcp.Server.Tests/ Test xUnit per i reader CSV/Parquet/testo/XML
 | `read_markdown` | Legge un file markdown (.md), con `maxLines` e `offset` per la paginazione; filtro opzionale `contains` |
 | `get_xml_schema` | Restituisce lo schema (colonne, tra attributi ed elementi) dell'elemento record di un XML tabellare senza leggerne i dati |
 | `read_xml` | Legge un XML tabellare (radice con elementi record ripetuti), con `maxRows`, elemento record e proiezione colonne opzionali, e `offset` per la paginazione; filtro opzionale `filter` |
+
+| `save_text` | Salva un file `.txt` in una cartella/sottocartella del datalake |
+| `save_markdown` | Salva un file `.md` |
+| `save_csv` | Salva un file `.csv` da testo CSV (validato: stesso numero di campi per riga) |
+| `save_parquet` | Salva un file `.parquet` da un elenco di righe (oggetti colonna → valore); i tipi sono dedotti (bool, intero, decimale, stringa) |
+| `save_pdf` | Salva un file `.pdf` da contenuto base64 (verificata l'intestazione `%PDF-`) |
+| `search_file` | Cerca nell'indice dei file salvati per `nomeFile` (contiene, case-insensitive) e/o `tipoFile` (csv, parquet, pdf, md, txt) e restituisce le voci trovate (`path` utilizzabile con i tool `read_*`). Se il risultato è un solo file, ne restituisce anche il contenuto (csv, parquet, txt, md; primi `maxRows` righe, poi si prosegue con `read_*` e `nextOffset`; per i pdf solo i metadati) |
 
 Le letture sono progettate per non caricare interi file in memoria: CSV, testo/markdown e XML
 vengono letti riga/elemento per riga/elemento fermandosi al limite richiesto, mentre Parquet viene
@@ -70,6 +79,17 @@ il limite di dimensione), il risultato riporta
 `truncated: true` e un `nextOffset`: richiamando nuovamente il tool con `offset = nextOffset` si
 ottiene la pagina successiva, saltando le righe già restituite senza doverle rileggere per intero.
 Quando non c'è altro da leggere, `truncated` è `false` e `nextOffset` è `null`.
+
+### Salvataggio file e indice
+
+I tool `save_*` accettano `path` (cartelle e sottocartelle vengono create se mancanti), `fileSystem`,
+`description` e `overwrite`. Senza `overwrite=true` un file esistente non viene mai sostituito (upload
+condizionale `If-None-Match: *`). L'estensione del percorso deve corrispondere al formato.
+
+Ogni salvataggio registra il file nell'**indice** `DataLake:SavedFilesIndexPath` (default
+`saved-files-index.csv`, nella radice del filesystem), un CSV leggibile con `read_csv` con colonne
+`path,name,format,sizeBytes,savedAt,description`. Salvare di nuovo lo stesso percorso aggiorna la riga
+esistente. L'indice è aggiornato con concurrency ottimistica (ETag, fino a 5 tentativi).
 
 ## Configurazione
 
