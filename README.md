@@ -4,6 +4,99 @@
 consentendo di navigare i file, leggerne il contenuto in formato CSV, Parquet, testo (.txt),
 markdown (.md) o XML, e di salvare file (testo, markdown, CSV, Parquet, PDF) con un indice ricercabile.
 
+[![Listed on mcpservers.org](https://mcpservers.org/badge.svg)](https://mcpservers.org/servers/alex1976/datalake-mcp)
+
+## Come funziona
+
+### Architettura
+
+```mermaid
+flowchart LR
+    U([Utente]) <--> C["Claude<br/>(Desktop / Code)"]
+    C <-->|"MCP via stdio"| T
+
+    subgraph S["Datalake.Mcp.Server (.NET 9)"]
+        direction TB
+        T["Tools/DataLakeTools<br/>tool MCP"]
+        subgraph R["Lettura (streaming)"]
+            direction LR
+            CSV[CsvReaderService]
+            PQ[ParquetReaderService]
+            TXT[TextReaderService]
+            XML[XmlReaderService]
+            F[RowFilter]
+        end
+        subgraph W["Scrittura"]
+            direction LR
+            FW[FileWriterService]
+            IDX[FileIndex]
+        end
+        DL[DataLakeService]
+        T --> R
+        T --> W
+        R --> DL
+        W --> DL
+        R -.-> F
+    end
+
+    DL <-->|"Azure.Storage.Files.DataLake<br/>AccountName + AccountKey"| ADLS[("Azure Data Lake<br/>Storage Gen2")]
+    IDX -.->|"saved-files-index.csv<br/>(ETag)"| ADLS
+```
+
+### Flusso di lettura e interrogazione
+
+```mermaid
+sequenceDiagram
+    actor U as Utente
+    participant C as Claude
+    participant M as Server MCP
+    participant L as Data Lake
+
+    U->>C: "Mostrami gli ordini APERTI > 1000"
+    C->>M: list_filesystems / list_directory
+    M->>L: navigazione
+    L-->>C: filesystem, cartelle, file
+    C->>M: get_parquet_schema (colonne e tipi)
+    C->>M: read_parquet(filter, columns, maxRows, offset)
+    M->>L: OpenReadAsync (download lazy)
+    loop un row-group / riga alla volta
+        L-->>M: byte necessari
+        M->>M: filtro → offset → maxRows
+    end
+    M-->>C: righe + truncated / nextOffset
+    C-->>U: risposta in linguaggio naturale
+    Note over C,M: se truncated=true si richiama con offset=nextOffset
+```
+
+### Flusso di salvataggio e ricerca
+
+```mermaid
+sequenceDiagram
+    actor U as Utente
+    participant C as Claude
+    participant M as Server MCP
+    participant L as Data Lake
+
+    U->>C: "Salva il report in report/2026"
+    C->>M: save_csv / save_parquet / save_pdf / ...
+    M->>M: validazione formato ed estensione
+    M->>L: upload condizionale (If-None-Match: *)
+    alt esiste già e overwrite=false
+        L-->>M: errore, nessuna sovrascrittura
+    else
+        L-->>M: file salvato
+        loop fino a 5 tentativi
+            M->>L: leggi indice (ETag)
+            M->>L: scrivi indice (If-Match: ETag)
+        end
+    end
+    M-->>C: esito
+    U->>C: "Trova il report"
+    C->>M: search_file(nomeFile, tipoFile)
+    M->>L: legge l'indice
+    M-->>C: voci trovate (+ contenuto se un solo file)
+```
+
 ## Struttura della soluzione
 
 ```
