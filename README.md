@@ -128,7 +128,6 @@ tests/Datalake.Mcp.Server.Tests/ Test xUnit per reader CSV/Parquet/testo/XML, wr
 | `read_markdown` | Legge un file markdown (.md), con `maxLines` e `offset` per la paginazione; filtro opzionale `contains` |
 | `get_xml_schema` | Restituisce lo schema (colonne, tra attributi ed elementi) dell'elemento record di un XML tabellare senza leggerne i dati |
 | `read_xml` | Legge un XML tabellare (radice con elementi record ripetuti), con `maxRows`, elemento record e proiezione colonne opzionali, e `offset` per la paginazione; filtro opzionale `filter` |
-
 | `create_folder` | Crea una cartella nella radice del filesystem o come sottocartella di una cartella esistente (il padre deve esistere; errore se la cartella esiste già) |
 | `save_text` | Salva un file `.txt` in una cartella/sottocartella del datalake |
 | `save_markdown` | Salva un file `.md` |
