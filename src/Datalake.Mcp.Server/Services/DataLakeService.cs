@@ -196,6 +196,47 @@ public sealed class DataLakeService
         }
     }
 
+    /// <summary>
+    /// Creates a directory. The parent must already exist (or be the filesystem root), so a mistyped parent path
+    /// does not silently create a new tree. The creation is conditional (If-None-Match: *): an existing folder is
+    /// reported as an error rather than reused.
+    /// </summary>
+    public async Task<DataLakePathInfo> CreateFolderAsync(string fileSystem, string path, CancellationToken cancellationToken)
+    {
+        var normalizedPath = NormalizePath(path);
+        var fileSystemClient = _serviceClient.GetFileSystemClient(fileSystem);
+
+        var separator = normalizedPath.LastIndexOf('/');
+        if (separator >= 0)
+        {
+            var parent = normalizedPath[..separator];
+            try
+            {
+                await fileSystemClient.GetDirectoryClient(parent).GetPropertiesAsync(cancellationToken: cancellationToken);
+            }
+            catch (Azure.RequestFailedException ex) when (ex.Status == 404)
+            {
+                throw new ArgumentException($"La cartella padre '{parent}' non esiste.", nameof(path));
+            }
+        }
+
+        var directoryClient = fileSystemClient.GetDirectoryClient(normalizedPath);
+        try
+        {
+            var response = await directoryClient.CreateAsync(
+                new DataLakePathCreateOptions
+                {
+                    Conditions = new DataLakeRequestConditions { IfNoneMatch = Azure.ETag.All },
+                },
+                cancellationToken);
+            return new DataLakePathInfo(normalizedPath, true, null, response.Value.LastModified);
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status is 409 or 412)
+        {
+            throw new InvalidOperationException($"La cartella '{normalizedPath}' esiste già.", ex);
+        }
+    }
+
     public Task<Stream> OpenReadAsync(string fileSystem, string path, CancellationToken cancellationToken)
     {
         var fileClient = _serviceClient.GetFileSystemClient(fileSystem).GetFileClient(path);

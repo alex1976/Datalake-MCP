@@ -373,6 +373,7 @@
         <tr><td><code>list_filesystems</code></td><td>Lists the account's filesystems (containers)</td></tr>
         <tr><td><code>list_directory</code></td><td>Lists files and directories in a path (optionally recursive)</td></tr>
         <tr><td><code>get_file_info</code></td><td>File metadata (size, last modified date)</td></tr>
+        <tr><td><code>create_folder</code></td><td>Creates a folder in the filesystem root or as a subfolder of an existing folder (the parent must exist; error if the folder already exists)</td></tr>
         <tr><td><code>read_csv</code></td><td>Reads a CSV, with <code>maxRows</code>, configurable delimiter, <code>offset</code> and a <code>filter</code></td></tr>
         <tr><td><code>get_parquet_schema</code></td><td>Schema (columns/types) of a Parquet file without reading its data</td></tr>
         <tr><td><code>read_parquet</code></td><td>Reads a Parquet file, with <code>maxRows</code>, column projection, <code>offset</code> and a <code>filter</code></td></tr>
@@ -537,6 +538,7 @@ dotnet run --project src/Datalake.Mcp.Server</code></pre>
         <tr><td><code>list_filesystems</code></td><td>Elenca i filesystem (container) dell'account</td></tr>
         <tr><td><code>list_directory</code></td><td>Elenca file e directory in un percorso (opzionalmente ricorsivo)</td></tr>
         <tr><td><code>get_file_info</code></td><td>Metadati di un file (dimensione, data ultima modifica)</td></tr>
+        <tr><td><code>create_folder</code></td><td>Crea una cartella nella radice del filesystem o come sottocartella di una cartella esistente (il padre deve esistere; errore se la cartella esiste già)</td></tr>
         <tr><td><code>read_csv</code></td><td>Legge un CSV, con <code>maxRows</code>, delimitatore configurabile e <code>offset</code> e filtro <code>filter</code></td></tr>
         <tr><td><code>get_parquet_schema</code></td><td>Schema (colonne/tipi) di un Parquet senza leggerne i dati</td></tr>
         <tr><td><code>read_parquet</code></td><td>Legge un Parquet, con <code>maxRows</code>, proiezione colonne e <code>offset</code> e filtro <code>filter</code></td></tr>

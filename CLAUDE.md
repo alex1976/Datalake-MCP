@@ -2,7 +2,7 @@
 the purpose of this project is to develop an MCP server to expose an azure datalake to Claude.
 
 # SPECIFICATION
-The MCP server must be able to navigate the files contained in the azure gen2 type datalake and read the contents in csv or parquet format.
+The MCP server must be able to navigate the files contained in the azure gen2 type datalake and read the contents in csv or parquet format. The tool create_folder (parameters path, fileSystem) creates a folder either in the filesystem root (default DataLake:DefaultFileSystem) or as a subfolder of an existing folder; the parent must already exist, and an existing folder is reported as an error.
 
 The user must be able to request data, specify filters, and express queries against the data contained in the data lake.
 

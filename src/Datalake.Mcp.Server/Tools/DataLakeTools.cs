@@ -277,6 +277,21 @@ public sealed class DataLakeTools(
         return new SearchFileResult(files, content, null);
     }
 
+    [McpServerTool(Name = "create_folder"), Description(
+        "Crea una cartella nel datalake. Per una cartella nella radice del filesystem indicare solo il nome; per una " +
+        "sottocartella indicare il percorso completo, la cartella padre deve già esistere. Se la cartella esiste già " +
+        "restituisce un errore.")]
+    public async Task<DataLakePathInfo> CreateFolderAsync(
+        [Description("Percorso della cartella da creare, relativo alla radice del filesystem, es. 'report' oppure 'report/2026'.")]
+        string path,
+        [Description("Nome del filesystem (container). Se omesso viene usato DataLake:DefaultFileSystem.")]
+        string? fileSystem = null,
+        CancellationToken cancellationToken = default)
+    {
+        var resolvedFileSystem = dataLake.ResolveFileSystem(fileSystem);
+        return await dataLake.CreateFolderAsync(resolvedFileSystem, path, cancellationToken);
+    }
+
     [McpServerTool(Name = "save_text"), Description("Salva un file di testo (.txt) nel datalake." + SaveNote)]
     public async Task<FileIndexEntry> SaveTextAsync(
         [Description("Percorso completo del file da creare (cartelle/sottocartelle incluse), es. 'report/2026/note.txt'.")] string path,
